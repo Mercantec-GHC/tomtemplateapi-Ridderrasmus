@@ -1,0 +1,41 @@
+﻿@page "/benzene"
+@using VisualizeApiData.Services
+@inject CircleK CircleKApi
+@inject HttpClient Http
+
+<PageTitle>Weather</PageTitle>
+
+<h1>Weather</h1>
+
+<p>This component demonstrates fetching data from the server.</p>
+
+@if (miles95PricePoints != null)
+{
+    <ApexChart @ref="chart" TItem="GasPricePoint" Title="Gas prices">
+        <ApexPointSeries TItem="GasPricePoint" Items="miles95PricePoints" Name="Benzene" SeriesType="SeriesType.Line" XValue="data => data.Date" YValue="data => data.Price" />
+    </ApexChart>
+}
+
+@code {
+    private List<GasPricePoint>? miles95PricePoints;
+    private List<GasPricePoint>? dieselPricePoints;
+
+    private ApexChart<GasPricePoint>? chart { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // miles95PricePoints = await CircleKApi.GetAsync<List<GasPricePoint>?>("miles95");
+        // dieselPricePoints = await CircleKApi.GetAsync<List<GasPricePoint>?>("diesel");
+
+        if (miles95PricePoints == null)
+        {
+            miles95PricePoints = await Http.GetFromJsonAsync<List<GasPricePoint>>("sample-data/miles95.json");
+        }
+    }
+
+    public class GasPricePoint
+    {
+        public decimal Price { get; set; }
+        public DateTime Date { get; set; }
+    }
+}
