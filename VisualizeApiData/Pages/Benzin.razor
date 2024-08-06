@@ -24,13 +24,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // miles95PricePoints = await CircleKApi.GetAsync<List<GasPricePoint>?>("miles95");
-        // dieselPricePoints = await CircleKApi.GetAsync<List<GasPricePoint>?>("diesel");
-
-        if (miles95PricePoints == null)
-        {
-            miles95PricePoints = await Http.GetFromJsonAsync<List<GasPricePoint>>("sample-data/miles95.json");
-        }
+        miles95PricePoints = await CircleKApi.GetAsync<List<GasPricePoint>?>("miles95");
+        dieselPricePoints = await CircleKApi.GetAsync<List<GasPricePoint>?>("diesel");
     }
 
     public class GasPricePoint
