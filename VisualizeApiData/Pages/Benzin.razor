@@ -13,6 +13,7 @@
 {
     <ApexChart @ref="chart" TItem="GasPricePoint" Title="Gas prices">
         <ApexPointSeries TItem="GasPricePoint" Items="miles95PricePoints" Name="Benzene" SeriesType="SeriesType.Line" XValue="data => data.Date" YValue="data => data.Price" />
+        <ApexPointSeries TItem="GasPricePoint" Items="dieselPricePoints" Name="Diesel" SeriesType="SeriesType.Line" XValue="data => data.Date" YValue="data => data.Price" />
     </ApexChart>
 }
 
