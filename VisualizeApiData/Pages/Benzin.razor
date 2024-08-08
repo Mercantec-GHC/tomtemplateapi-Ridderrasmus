@@ -1,17 +1,17 @@
 ﻿@page "/benzene"
+@using System.Text.Json.Nodes
 @using VisualizeApiData.Services
 @inject CircleK CircleKApi
-@inject HttpClient Http
 
-<PageTitle>Weather</PageTitle>
+<PageTitle>Benzene</PageTitle>
 
-<h1>Weather</h1>
+<h1>Benzene</h1>
 
-<p>This component demonstrates fetching data from the server.</p>
+<p>This component demonstrates fetching data from the api.</p>
 
 @if (miles95PricePoints != null)
 {
-    <ApexChart @ref="chart" TItem="GasPricePoint" Title="Gas prices">
+    <ApexChart TItem="GasPricePoint" Title="Gas prices" XAxisType="XAxisType.Datetime" >
         <ApexPointSeries TItem="GasPricePoint" Items="miles95PricePoints" Name="Benzene" SeriesType="SeriesType.Line" XValue="data => data.Date" YValue="data => data.Price" />
         <ApexPointSeries TItem="GasPricePoint" Items="dieselPricePoints" Name="Diesel" SeriesType="SeriesType.Line" XValue="data => data.Date" YValue="data => data.Price" />
     </ApexChart>
@@ -20,8 +20,6 @@
 @code {
     private List<GasPricePoint>? miles95PricePoints;
     private List<GasPricePoint>? dieselPricePoints;
-
-    private ApexChart<GasPricePoint>? chart { get; set; }
 
     protected override async Task OnInitializedAsync()
     {

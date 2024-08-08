@@ -1,0 +1,250 @@
+﻿@page "/PokemonTyper"
+@using System.Text.Json.Serialization
+@using System.Text.Json
+@inject HttpClient Http
+
+<h3>Pokemon Typer!</h3>
+
+<p>Let's play a game!</p>
+
+I show you the image of a pokemon...
+And you have to guess the type of the pokemon!
+
+<button onclick="@ToggleGame">@( !gameState.GameRunning ? "Let's go!" : "Okay I'm done'")</button>
+
+@if (gameState.GameRunning)
+{
+    <h4>Total Game Score: @gameState.TotalScore</h4>
+    <h4>Incorrect guesses: @gameState.CurrentRound.IncorrectGuesses</h4>
+    <h4>Potential score for this round: @gameState.CurrentRound.Score</h4>
+}
+
+
+@if (gameState.GameRunning && gameState.CurrentRound.Pokemon != null)
+{
+    <div>
+        <div>
+            <img src="@gameState.CurrentRound.Pokemon.Sprites.Other.Official_Artwork.Front_Default" alt="@gameState.CurrentRound.Pokemon.Name" />
+        </div>
+        <h4>What type is this pokemon?</h4>
+        <div>
+            @foreach (PokemonType type in AllTypes)
+            {
+                <button onclick="@(async () =>  await GuessPokemonType(type))">
+                    <span style="background-color: @(type.Colour); color: white; padding: 5px; margin: 5px; border-radius: 5px;">@(type.Name)</span>
+                </button>
+            }
+        </div>
+    </div>
+}
+
+
+@code {
+    private GameState gameState = new GameState();
+    private List<PokemonType> AllTypes = new List<PokemonType>()
+    {
+        new PokemonType() {
+            Name = "Normal",
+            Colour = "grey"
+        },
+        new PokemonType() {
+            Name = "Fighting",
+            Colour = "red"
+        },
+        new PokemonType() {
+            Name = "Flying",
+            Colour = "blue"
+        },
+        new PokemonType() {
+            Name = "Poison",
+            Colour = "purple"
+        },
+        new PokemonType() {
+            Name = "Ground",
+            Colour = "brown"
+        },
+        new PokemonType() {
+            Name = "Rock",
+            Colour = "brown"
+        },
+        new PokemonType() {
+            Name = "Bug",
+            Colour = "green"
+        },
+        new PokemonType() {
+            Name = "Ghost",
+            Colour = "purple"
+        },
+        new PokemonType() {
+            Name = "Steel",
+            Colour = "gray"
+        },
+        new PokemonType() {
+            Name = "Fire",
+            Colour = "orange"
+        },
+        new PokemonType() {
+            Name = "Water",
+            Colour = "blue"
+        },
+        new PokemonType() {
+            Name = "Grass",
+            Colour = "green"
+        },
+        new PokemonType() {
+            Name = "Electric",
+            Colour = "yellow"
+        },
+        new PokemonType() {
+            Name = "Psychic",
+            Colour = "pink"
+        },
+        new PokemonType() {
+            Name = "Ice",
+            Colour = "lightblue"
+        },
+        new PokemonType() {
+            Name = "Dragon",
+            Colour = "purple"
+        },
+        new PokemonType() {
+            Name = "Dark",
+            Colour = "black"
+        },
+        new PokemonType() {
+            Name = "Fairy",
+            Colour = "pink"
+        },
+        new PokemonType() {
+            Name = "Stellar",
+            Colour = "yellow"
+        }
+    };
+
+    public async Task ToggleGame()
+    {
+        gameState.GameRunning = !gameState.GameRunning;
+        if (gameState.GameRunning)
+        {
+            gameState.CurrentRound.Pokemon = await GeneratePokemon();
+        }
+    }
+
+    public async Task GuessPokemonType(PokemonType type)
+    {
+        if (gameState.GameRunning)
+        {
+            gameState.CurrentRound.GuessedTypes.Add(type);
+            if (gameState.CurrentRound.Pokemon.Types.Any(e => e.Type.Name.ToLower() == type.Name.ToLower()) && !gameState.CurrentRound.GuessedTypes.Contains(type))
+            {
+                // Correct guess
+                gameState.CurrentRound.GuessedTypes.Add(type);
+                if (gameState.CurrentRound.GuessedTypes.Count == gameState.CurrentRound.Pokemon.Types.Count)
+                {
+                    // Check if all types are guessed
+                    gameState.PreviousRounds.Add(gameState.CurrentRound);
+                    gameState.CurrentRound = new GameRound();
+                    gameState.CurrentRound.Pokemon = await GeneratePokemon();
+                    StateHasChanged();
+                }
+            }
+            else
+            {
+                // Incorrect guess
+                gameState.CurrentRound.IncorrectGuesses++;
+                if (gameState.CurrentRound.IncorrectGuesses >= gameState.CurrentRound.MaxIncorrectGuesses)
+                {
+                    // Game over
+                    gameState.GameRunning = false;
+                    StateHasChanged();
+                }
+            }
+        }
+    }
+
+    
+
+    public async Task<Pokemon> GeneratePokemon()
+    {
+        // Generate a random pokemon
+        var list = await Http.GetFromJsonAsync<PokeApiResponse>("https://pokeapi.co/api/v2/pokemon/");
+
+        var random = new Random();
+
+        int randomPokemonId = random.Next(0, list.Results.Count);
+
+        return await Http.GetFromJsonAsync<Pokemon>($"https://pokeapi.co/api/v2/pokemon/{randomPokemonId}");
+    }
+
+
+
+
+    // Game classes
+
+    public class GameState
+    {
+        public bool GameRunning { get; set; } = false;
+        public int TotalScore { get { return PreviousRounds.Sum(e => e.Score); } }
+        public GameRound CurrentRound { get; set; } = new GameRound();
+        public List<GameRound> PreviousRounds { get; set; } = new List<GameRound>();
+
+    }
+
+    public class GameRound
+    {
+        public Pokemon Pokemon { get; set; }
+        public List<PokemonType> GuessedTypes { get; set; } = new List<PokemonType>();
+        public int IncorrectGuesses { get; set; } = 0;
+        public int MaxIncorrectGuesses { get; set; } = 3;
+        public int Score { get { return 10 - (IncorrectGuesses * 2); } }
+    }
+
+
+    // Pokemon API classes
+
+    public class PokeApiResponse
+    {
+        public int Count { get; set; }
+        public string Next { get; set; }
+        public string Previous { get; set; }
+        public List<Pokemon> Results { get; set; }
+    }
+
+    public class Pokemon
+    {
+        public string Name { get; set; }
+        public string Url { get; set; }
+        public string ImageUrl { get; set; }
+        public List<TypeSlot> Types { get; set; }
+        public Sprites Sprites { get; set; }
+    }
+
+    public class Sprites
+    {
+        public string Front_Default { get; set; }
+        public Other Other { get; set; }
+    }
+
+    public class Other
+    {
+        [JsonPropertyName("official-artwork")]
+        public Official_Artwork Official_Artwork { get; set; }
+    }
+
+    public class Official_Artwork
+    {
+        public string Front_Default { get; set; }
+    }
+
+    public class TypeSlot
+    {
+        public int Slot { get; set; }
+        public PokemonType Type { get; set; }
+    }
+
+    public class PokemonType
+    {
+        public string Name { get; set; }
+        public string Colour { get; set; }
+    }
+}
