@@ -2,13 +2,16 @@
 @using System.Text.Json.Serialization
 @using System.Text.Json
 @inject HttpClient Http
+@inject PokemonBlazor.Services.Leaderboard LeaderboardService
+
+<PageTitle>Pokemon Typer</PageTitle>
 
 <h3>Pokemon Typer!</h3>
 
-<p>Let's play a game!</p>
-
-I show you the image of a pokemon...
-And you have to guess the type of the pokemon!
+<p>
+    I show you the image of a pokemon...
+    And you have to guess the type of the pokemon!
+</p>
 
 <button onclick="@ToggleGame">@( !gameState.GameRunning ? "Let's go!" : "Okay I'm done'")</button>
 
@@ -17,10 +20,26 @@ And you have to guess the type of the pokemon!
     <h4>Total Game Score: @gameState.TotalScore</h4>
     <h4>Incorrect guesses: @gameState.CurrentRound.IncorrectGuesses</h4>
     <h4>Potential score for this round: @gameState.CurrentRound.Score</h4>
+    <br />
+    @if (gameState.CurrentRound != null && gameState.CurrentRound.Pokemon != null && gameState.CurrentRound.RoundState != RoundStateEnum.Incorrect)
+    {
+        
+        <div>
+            <h4>@gameState.CurrentRound.Pokemon.Name.ToSentenceCase()</h4>
+            <h4>
+                Types: @foreach (PokemonType ptype in gameState.CurrentRound.Pokemon.Types.Select(e => e.Type))
+                {
+                    bool guessed = gameState.CurrentRound.GuessedTypes.Any(e => e.Name.ToLower() == ptype.Name.ToLower());
+                    PokemonType type = AllTypes.FirstOrDefault(e => e.Name.ToLower() == ptype.Name.ToLower());
+                    <span style="background-color: @(guessed ? type.Colour : "grey"); color: white; padding: 5px; margin: 5px; border-radius: 5px;">@(guessed ? type.Name : "???")</span>
+                }
+            </h4>
+        </div>
+    }
 }
 
 
-@if (gameState.GameRunning && gameState.CurrentRound.Pokemon != null)
+@if (gameState.GameRunning && gameState.CurrentRound.Pokemon != null && gameState.CurrentRound.RoundState == RoundStateEnum.Running)
 {
     <div>
         <div>
@@ -36,10 +55,28 @@ And you have to guess the type of the pokemon!
             }
         </div>
     </div>
+} 
+else if (gameState.GameRunning && gameState.CurrentRound.RoundState == RoundStateEnum.Correct)
+{
+    <h4 style="color:green">@gameState.CurrentRound.RoundText</h4>
+    <button onclick="@EndRound">Next round</button>
+}
+else if (gameState.GameRunning && gameState.CurrentRound.RoundState == RoundStateEnum.Incorrect)
+{
+    <h4 style="color:red">@gameState.CurrentRound.RoundText</h4>
+    <button onclick="@ToggleGame">End game</button>
+    <br />
+    @if (!isAddedToLeaderboard)
+    {
+        <input type="text" placeholder="Player name" @bind="name" />
+        <button onclick="@(async () => await AddToLeaderboard())">Add to leaderboard</button>
+    }
 }
 
 
 @code {
+    private bool isAddedToLeaderboard = false;
+    private string name = "";
     private GameState gameState = new GameState();
     private List<PokemonType> AllTypes = new List<PokemonType>()
     {
@@ -121,12 +158,26 @@ And you have to guess the type of the pokemon!
         }
     };
 
+    public async Task AddToLeaderboard()
+    {
+        // Add to leaderboard
+        isAddedToLeaderboard = true;
+        LeaderboardService.AddEntry(name, gameState.TotalScore);
+    }
+
     public async Task ToggleGame()
     {
         gameState.GameRunning = !gameState.GameRunning;
         if (gameState.GameRunning)
         {
+            gameState.CurrentRound = new GameRound();
             gameState.CurrentRound.Pokemon = await GeneratePokemon();
+        } 
+        else
+        {
+            gameState.CurrentRound = null;
+            gameState.PreviousRounds = new List<GameRound>();
+            isAddedToLeaderboard = false;
         }
     }
 
@@ -134,7 +185,6 @@ And you have to guess the type of the pokemon!
     {
         if (gameState.GameRunning)
         {
-            gameState.CurrentRound.GuessedTypes.Add(type);
             if (gameState.CurrentRound.Pokemon.Types.Any(e => e.Type.Name.ToLower() == type.Name.ToLower()) && !gameState.CurrentRound.GuessedTypes.Contains(type))
             {
                 // Correct guess
@@ -142,10 +192,8 @@ And you have to guess the type of the pokemon!
                 if (gameState.CurrentRound.GuessedTypes.Count == gameState.CurrentRound.Pokemon.Types.Count)
                 {
                     // Check if all types are guessed
-                    gameState.PreviousRounds.Add(gameState.CurrentRound);
-                    gameState.CurrentRound = new GameRound();
-                    gameState.CurrentRound.Pokemon = await GeneratePokemon();
-                    StateHasChanged();
+                    gameState.CurrentRound.RoundText = $"Correct!";
+                    gameState.CurrentRound.RoundState = RoundStateEnum.Correct;
                 }
             }
             else
@@ -155,14 +203,23 @@ And you have to guess the type of the pokemon!
                 if (gameState.CurrentRound.IncorrectGuesses >= gameState.CurrentRound.MaxIncorrectGuesses)
                 {
                     // Game over
-                    gameState.GameRunning = false;
-                    StateHasChanged();
+                    gameState.CurrentRound.RoundText = $"Game over! The correct types were: {string.Join(", ", gameState.CurrentRound.Pokemon.Types.Select(e => e.Type.Name.ToSentenceCase()))}";
+                    gameState.CurrentRound.RoundState = RoundStateEnum.Incorrect;
                 }
             }
         }
+        StateHasChanged();
     }
 
-    
+    public async Task EndRound()
+    {
+        gameState.PreviousRounds.Add(gameState.CurrentRound);
+        gameState.CurrentRound = null;
+        gameState.CurrentRound = new GameRound();
+        gameState.CurrentRound.Pokemon = await GeneratePokemon();
+    }
+
+
 
     public async Task<Pokemon> GeneratePokemon()
     {
@@ -171,9 +228,20 @@ And you have to guess the type of the pokemon!
 
         var random = new Random();
 
-        int randomPokemonId = random.Next(0, list.Results.Count);
-
-        return await Http.GetFromJsonAsync<Pokemon>($"https://pokeapi.co/api/v2/pokemon/{randomPokemonId}");
+        Pokemon? result = null;
+        while(result == null)
+        {
+            int randomPokemonId = random.Next(0, list.Count);
+            try
+            {
+                result = await Http.GetFromJsonAsync<Pokemon?>($"https://pokeapi.co/api/v2/pokemon/{randomPokemonId}");
+            }
+            catch
+            {
+                // Try again
+            }
+        }
+        return result;
     }
 
 
@@ -185,18 +253,28 @@ And you have to guess the type of the pokemon!
     {
         public bool GameRunning { get; set; } = false;
         public int TotalScore { get { return PreviousRounds.Sum(e => e.Score); } }
-        public GameRound CurrentRound { get; set; } = new GameRound();
+        public GameRound CurrentRound { get; set; }
         public List<GameRound> PreviousRounds { get; set; } = new List<GameRound>();
 
     }
 
     public class GameRound
     {
+        public RoundStateEnum RoundState { get; set; } = RoundStateEnum.Running;
         public Pokemon Pokemon { get; set; }
         public List<PokemonType> GuessedTypes { get; set; } = new List<PokemonType>();
         public int IncorrectGuesses { get; set; } = 0;
         public int MaxIncorrectGuesses { get; set; } = 3;
         public int Score { get { return 10 - (IncorrectGuesses * 2); } }
+        public string? RoundText { get; set; }
+    }
+
+    public enum RoundStateEnum
+    {
+        Running,
+        Correct,
+        Incorrect,
+        GameOver
     }
 
 

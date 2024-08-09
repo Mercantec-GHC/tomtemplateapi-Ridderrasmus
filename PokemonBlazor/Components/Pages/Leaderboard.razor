@@ -1,0 +1,46 @@
+﻿@page "/Leaderboard"
+@using PokemonBlazor.Services
+@inject PokemonBlazor.Services.Leaderboard LeaderboardService
+@implements IDisposable
+
+<PageTitle>Leaderboard</PageTitle>
+
+@if (LeaderboardEntries.Count == 0)
+{
+    <p>No entries!</p>
+}
+else
+{
+    <h3>Leaderboard</h3>
+
+    <ol>
+        @foreach (var entry in LeaderboardEntries)
+        {
+            <li>
+                <h4>@entry.Name - @entry.Score</h4>
+            </li>
+        }
+    </ol>
+}
+
+@code {
+    private List<LeaderboardEntry> LeaderboardEntries = new List<LeaderboardEntry>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        LeaderboardEntries = LeaderboardService.GetEntries().Result;
+        LeaderboardService.LeaderboardChanged += LeaderboardChanged;
+    }
+
+    public void LeaderboardChanged(object sender, EventArgs arg)
+    {
+        LeaderboardEntries = LeaderboardService.GetEntries().Result;
+
+        InvokeAsync(() => StateHasChanged());
+    }
+
+    public void Dispose()
+    {
+        LeaderboardService.LeaderboardChanged -= LeaderboardChanged;
+    }
+}

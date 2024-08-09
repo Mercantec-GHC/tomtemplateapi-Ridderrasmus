@@ -1,6 +1,4 @@
-﻿using System.Net.Http.Json;
-
-namespace VisualizeApiData.Services
+﻿namespace PokemonBlazor.Services
 {
     public class CircleK
     {
