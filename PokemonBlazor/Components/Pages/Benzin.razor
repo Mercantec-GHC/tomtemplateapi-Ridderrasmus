@@ -13,13 +13,28 @@
 {
     <ApexChart TItem="GasPricePoint" Title="Gas prices" XAxisType="XAxisType.Datetime" >
         <ApexPointSeries TItem="GasPricePoint" Items="miles95PricePoints" Name="Benzene" SeriesType="SeriesType.Line" XValue="data => data.Date" YValue="data => data.Price" />
-        <ApexPointSeries TItem="GasPricePoint" Items="dieselPricePoints" Name="Diesel" SeriesType="SeriesType.Line" XValue="data => data.Date" YValue="data => data.Price" />
+        
+            <ApexPointSeries 
+                TItem="GasPricePoint" 
+                Items="dieselPricePoints" 
+                Name="Diesel" 
+                SeriesType="SeriesType.Line" 
+                
+                XValue="ReturnXValue" 
+                
+                YValue="data => data.Price" 
+                />
     </ApexChart>
 }
 
 @code {
     private List<GasPricePoint>? miles95PricePoints;
     private List<GasPricePoint>? dieselPricePoints;
+
+    private object ReturnXValue(GasPricePoint data)
+    {
+        return data.Date;
+    }
 
     protected override async Task OnInitializedAsync()
     {
